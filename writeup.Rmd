@@ -1,0 +1,175 @@
+---
+title: "DTS Analysis"
+author: "Jack Herring"
+date: "17 August 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+Distributed Temperature Sensing (DTS) is a system for real time temperature monitoring using fibre optic cables. In this case the data gathered is from a DTS system on a fibre integrated in a high voltage underground cable. The temperature of an underground cable is the limiting factor in the current it can carry.
+
+An RShiny app was written to display the results of the data by plotting the load (A) and relative temperature (degrees C). The user can edit the start and end dates and times to display as well as the location of the temperature to display along the cable route.
+
+## Link
+
+The app can be seen at the following link:
+
+https://jackherring.shinyapps.io/dts_graphs/
+
+
+
+The code used to publish this app is shown below.
+
+## R Code
+
+```{r, eval=FALSE}
+#Load libraries
+
+library(shiny)
+library(ggplot2)
+
+# Load data
+load('dtsdata.Rdata')
+
+# Set up page
+ui <- fluidPage(
+  headerPanel('DTS Monitoring Results'),
+  sidebarLayout(
+    
+    #Inputs including slider for location, dateinput for dates and sliders for times
+    
+    sidebarPanel(sliderInput(inputId = "location", 
+                             label = "Choose a location", 
+                             value = 5000, min = 0, 
+                             max = 60000,
+                             step=500),
+                 
+                 dateInput(inputId = 'start', 
+                           label = 'Start Date and Time', 
+                           value = as.POSIXct('2016-09-19'), 
+                           min = as.POSIXct('2016-09-17'), 
+                           max  = as.POSIXct('2016-09-30'),
+                           format = "yyyy-mm-dd", 
+                           startview = "month", 
+                           weekstart = 0,
+                           language = "en", 
+                           width = NULL),
+                 
+                 sliderInput(inputId = "starttime", 
+                             label = "", 
+                             value = 6, min = 0, max = 23),
+                 
+                 dateInput(inputId = 'end', 
+                           label = 'End Date and Time', 
+                           value = as.POSIXct('2016-09-21'), 
+                           min = as.POSIXct('2016-09-17'), 
+                           max  = as.POSIXct('2016-09-30'),
+                           format = "yyyy-mm-dd", 
+                           startview = "month", 
+                           weekstart = 0,
+                           language = "en", width = NULL)
+                 
+                 ,
+                 
+                 sliderInput(inputId = "endtime", 
+                             label = "", 
+                             value = 21, 
+                             min = 0, 
+                             max = 23)),
+    
+    # Output graphs
+    mainPanel( plotOutput("loadplot"),
+               plotOutput("tempplot"))
+  )
+  
+ 
+  
+)
+
+# Server
+server <- function(input, output) {
+  
+  # Get temperature data depending on location slider
+  plotdata <- reactive({
+    
+    dts.data$Temperature[which(abs(dts.data$Locations-input$location)==min(abs(dts.data$Locations-input$location))),]
+    
+  })
+  
+  # get date limits for x axes depending on time and date inputs
+  datelimit1 <- reactive({
+    
+    as.POSIXct(paste(as.character(input$start),paste(input$starttime,':00:00',sep='')))
+    
+    #c(as.POSIXct(input$start),as.POSIXct(input$end))
+    
+  })
+  datelimit2 <- reactive({
+    
+    as.POSIXct(paste(as.character(input$end),paste(input$endtime,':00:00',sep='')))
+    
+    #c(as.POSIXct(input$start),as.POSIXct(input$end))
+    
+  })
+  
+  # Temperature plot output
+  output$tempplot <- renderPlot({
+    
+    
+    
+    ggplot(mapping=aes(x=dts.data$Temp.Time, 
+                       y = plotdata()))+
+      geom_line()+
+      scale_x_datetime(limits = c(datelimit1(),datelimit2()),   # using time/date inputs
+                     name = 'Time and Date')+
+      scale_y_continuous(name='Relative temperature',
+                       limits = c(min(plotdata()),max(plotdata())))+
+      ggtitle('Relative Temperature')+
+      theme_bw()
+    
+  })
+  
+  #plot load output
+  
+  output$loadplot <- renderPlot({
+    
+    ggplot(mapping=aes(x=dts.data$Load.time, y = dts.data$Load))+
+      geom_line()+
+      scale_x_datetime(limits = c(datelimit1(),datelimit2()),   # using time/date inputs
+                       name = 'Time and Date')+
+      scale_y_continuous(name='Load')+
+      ggtitle('Load')+
+      theme_bw()
+    
+  })
+  
+}
+
+# Create shiny app object
+shinyApp(ui = ui, server = server)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
